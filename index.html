@@ -74,6 +74,7 @@ const MUSDATA={"duel-intense": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAA
 const W=480,H=270,GY=230,GRAV=900;
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const $=id=>document.getElementById(id);
+let QPREF='max';try{QPREF=localStorage.getItem('adc_q')||'max'}catch(e){}
 let SC=1,QMAX=3,QLOW=false;
 const touch=matchMedia('(pointer:coarse)').matches||('ontouchstart' in window);
 function resize(){
@@ -210,7 +211,7 @@ const HEROES={
   mage:{name:'Mage',hp:4,desc:'Boule de feu · Soin (rare) · Explosion ultime · esquive'}};
 const CH=()=>G.char||'chevalier';
 const SAVEKEY='amesDeCendre_v2';
-function save(){try{localStorage.setItem(SAVEKEY,JSON.stringify({lv:G.lv,check,up:UP,souls:G.souls,deaths:G.deaths,stain:G.stain,weapon:G.weapon,opened:G.opened,doors:G.doors,hints:G.hints,tries:G.tries,cleared:G.cleared,char:G.char,arrow:G.arrow,ult:G.ult,healCD:G.healCD}))}catch(e){}}
+function save(){try{localStorage.setItem(SAVEKEY,JSON.stringify({lv:G.lv,check,up:UP,souls:G.souls,deaths:G.deaths,stain:G.stain,weapon:G.weapon,opened:G.opened,doors:G.doors,hints:G.hints,tries:G.tries,cleared:G.cleared,seeds:G.seeds,char:G.char,arrow:G.arrow,ult:G.ult,healCD:G.healCD}))}catch(e){}}
 function loadSave(){try{const s=JSON.parse(localStorage.getItem(SAVEKEY));return s&&typeof s.lv==='number'?s:null}catch(e){return null}}
 function clearSave(){try{localStorage.removeItem(SAVEKEY)}catch(e){}}
 
@@ -245,6 +246,11 @@ function makeLevel(D){
       if(sc[5])L.stones.push([fx+len-40,sy,sc[5][0],sc[5][1]]);
       L.chests.push([fx+len-74,sy]);
       x=fx+len+50}
+    else if(k==='steps'){x+=30;const hs=sc[1],bw=34;hs.forEach((h,j)=>L.blocks.push([x+j*bw,bw,h]));
+      const top=hs.indexOf(Math.max(...hs)),tx=x+top*bw+bw/2;
+      if(sc[2]==='M')L.enemies.push(['M',tx-6,GY-hs[top]]);else if(sc[2]==='c')L.chests.push([tx-7,GY-hs[top]]);
+      x+=hs.length*bw;if(sc[3])L.enemies.push(['S',x+40]);x+=90}
+    else if(k==='bridge'){L.ground.push([seg,x]);let bx=x;for(const q of sc[1]){bx+=q[0];L.plats.push([bx,q[1],50]);if(q[2])L.enemies.push(['M',bx+19,q[1]]);bx+=50}seg=bx+sc[2];x=seg+110}
     else if(k==='door'){x+=60;L.doors.push({x,r:sc[1]});x+=90}
     else if(k==='fire'){x+=70;L.fires.push(x);x+=90}
     else if(k==='arena'){L.arenas.push({ax:x,boss:sc[1],mid:!!sc[2]});x+=W;x+=sc[2]?40:220}
@@ -474,7 +480,50 @@ const RIDDLES=[
 ];
 const STOPW=new Set(['le','la','les','l','un','une','des','du','de','d','c','est','cest','mon','ma','ton','ta','je','suis','tu','es']);
 function norm(t){return String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(w=>w&&!STOPW.has(w)).join(' ')}
-LEVELS.forEach(l=>l.enemies=l.enemies.filter(e=>e[0]!=='D'));
+LEVELS.forEach((l,i)=>{l.enemies=l.enemies.filter(e=>e[0]!=='D');l.wid=i});
+/* ---------- Génération procédurale : un parcours différent à chaque tentative ---------- */
+const BASE=LEVELS.slice();
+function mulb(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function newSeed(){return (Math.random()*2147483647)|0}
+/* actes par niveau : [énigme, boss de mi-parcours] ; boss final */
+const ACTS=[[[null]],[[0]],[[1]],[[2]],[[3]],[[4,6],[5]],[[6,8],[7]],[[8,10],[9]]],FINALB=[1,2,3,4,5,7,9,11];
+function genSections(i,R){
+  const ri=(a,b)=>a+Math.floor(R()*(b-a+1)),pick=a=>a[Math.floor(R()*a.length)];
+  const shuf=a=>{for(let k=a.length-1;k>0;k--){const j=Math.floor(R()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a};
+  const dens=1+i*.09;let chest=0;
+  const foe=()=>{const r=R();return r<.55?'S':r<.75?'M':r<.87?'pm':'b'};
+  const toks=(len,extra)=>{const max=Math.max(1,Math.floor(len/58)-1);let n=Math.min(max,Math.max(1,Math.round(len/95*dens)));
+    const t=[];for(let k=0;k<n;k++)t.push(foe());if(chest<1&&R()<.3){chest++;t.push(R()<.5?'pc':'p')}else if(R()<.25)t.push('p');
+    if(extra)t.push(extra);while(t.length>max)t.shift();return shuf(t)};
+  const flat=extra=>{const len=ri(180,300)+(extra?40:0);return['flat',len,toks(len,extra)]};
+  const pits=()=>{const n=ri(1,i<2?2:3),a=[];for(let k=0;k<n;k++){const len=ri(200,250),t=[];const m=R()<.45+i*.04?2:1;
+      for(let q=0;q<m;q++)t.push(pick(['S','S','M','pm','b']));if(chest<1&&R()<.18){chest++;t.push('pc')}a.push([len,...shuf(t)])}return['pits',a]};
+  const steps=()=>['steps',pick([[22,44,66,44,22],[24,48,48,24],[20,40,60,80,40],[22,44,66,66,33],[30,60,30]]),R()<.6?'M':(chest<1&&R()<.5?(chest++,'c'):'M'),R()<.6];
+  const bridge=()=>{const n=ri(3,4),q=[];let y=GY-ri(20,40);
+    for(let k=0;k<n;k++){const ny=k?Math.max(GY-80,Math.min(GY-18,y+ri(-30,30))):y;q.push([k?ri(26,42):ri(16,26),ny,(k===n-2&&R()<.25+i*.05)?1:0]);y=ny}
+    return['bridge',q,ri(20,30)]};
+  const fork=hint=>{const up=[],lo=[];const nu=R()<.35+i*.06?2:1;for(let k=0;k<nu;k++)up.push('m');
+      const nl=ri(1,2+(i>3?1:0));for(let k=0;k<nl;k++)lo.push('S');
+      return['fork',ri(26,32)*10,R()<.5?'bas':'haut',up,shuf(lo),hint||null]};
+  const filler=()=>{const r=R();if(r<.28)return flat();if(r<.6)return pits();if(r<.78)return steps();return i>0||R()<.5?bridge():flat()};
+  const sec=[['start'],['flat',ri(170,240),i<1?['S']:shuf(['S',R()<.5?'S':'M'])]];
+  ACTS[i].forEach((act,ai)=>{const r=act[0],mid=act[1];const items=[];
+    if(r==null){items.push(fork(),fork())}else for(const h of [0,1])items.push(R()<.78?fork([r,h]):flat('h'+r+'.'+h));
+    const nf=ri(2,3)+(i>=4?1:0)+(ai===0&&!mid&&i>=2?1:0);for(let k=0;k<nf;k++)items.push(filler());
+    shuf(items);
+    for(let k=1;k<items.length;k++)if(items[k][0]==='bridge'&&items[k-1][0]==='bridge')items[k]=flat();
+    sec.push(...items);
+    if(mid){sec.push(['door',r],['fire'],['arena',mid,1])}
+    else{if(r!=null)sec.push(['door',r]);sec.push(['flat',ri(130,190),R()<.5?['S']:['S','S']],['fire'],['arena',FINALB[i]])}
+    if(mid)chest=0});
+  return sec}
+function genLevel(i,seed){const B=BASE[i];
+  if(seed==null){LEVELS[i]=B;return B}
+  const Ln=makeLevel(Object.assign({},B,{sec:genSections(i,mulb(seed)),_pits:null}));
+  Ln.enemies=Ln.enemies.filter(e=>e[0]!=='D');Ln.wid=i;Ln.seed=seed;LEVELS[i]=Ln;return Ln}
+function regenLevel(){const sd=newSeed();G.seeds[G.lv]=sd;L=genLevel(G.lv,sd);solids=build(L);G.opened={};G.cleared={};
+  if(G.stain&&G.stain.lv===G.lv){G.stain.x=START+120;G.stain.y=GY}
+  G.banner=2.5}
 const BOSSNAMES=['','Gardien Déchu','Sorcière des Cendres','Le Roi Sans Flamme','Gorgoth, le Sanglier Enragé','Le Seigneur des Cendres','Le Bourreau de Suie','L’Hydre des Marais','Le Golem de Magma','L’Archimage Déchu','Le Chevalier Noir','La Flamme Originelle'];
 const BOSSSOULS=[0,200,300,400,550,1000,600,900,700,1000,900,2000];
 
@@ -491,8 +540,8 @@ function build(Lv){const s=[];
     if(f.dead==='bas')s.push({x:f.x+f.len-12,y:160,w:12,h:70});else s.push({x:f.x+f.len-12,y:0,w:12,h:150})});
   Lv.doors.forEach((d,i)=>{if(!G.doors[G.lv+':'+i])s.push({x:d.x,y:0,w:24,h:GY,door:i})});
   return s}
-function loadLevel(i,chk){if(!chk){G.opened={};G.cleared={}}G.lv=i;L=LEVELS[i];solids=build(L);check=chk&&L.fires.includes(chk)?chk:START;G.banner=3.5;G.fade=1;G.bossDead=false;spawn();save();if(check===START)openSelect()}
-function spawn(){
+function loadLevel(i,chk){if(!chk){G.opened={};G.cleared={}}G.lv=i;if(!G.seeds)G.seeds={};if(!chk||G.seeds[i]===undefined)G.seeds[i]=newSeed();L=genLevel(i,G.seeds[i]);solids=build(L);check=chk&&L.fires.includes(chk)?chk:START;G.banner=3.5;G.fade=1;G.bossDead=false;spawn();save();if(check===START)openSelect()}
+function spawn(){if(typeof qReset==='function')qReset();
   p={x:check,y:GY-22,w:12,h:22,vx:0,vy:0,hp:stat.hp(),inv:0,face:1,jumps:0,onGround:true,atk:0,atkCD:0,atkId:0,spell:0,kb:0,anim:0,st:stat.stmax(),stD:0,blocking:false,buff:0,atkD:.12,dash:0,gx:check,gy:GY};
   cam={x:Math.max(0,check-180)};
   enemies=L.enemies.filter(e=>e[1]>check+120).map(mkEnemy);
@@ -736,8 +785,8 @@ function showTitle(){musStop(1);
   if(s)$('mc').onclick=()=>{initAudio();contGame(s)};
   $('mn').onclick=()=>{initAudio();if(s&&$('mn').dataset.c!=='1'){$('mn').dataset.c='1';$('mn').textContent='Effacer la sauvegarde ? Touchez encore';return}newGame()};
 }
-function newGame(){G.weapon=0;G.opened={};G.doors={};G.hints={};G.tries={};G.cleared={};G.arrow=0;G.ult=0;G.healCD=0;for(const k in UP)UP[k]=0;G.souls=0;G.deaths=0;G.stain=null;hideMenu();loadLevel(0)}
-function contGame(s){if(s.lv>=LEVELS.length)s.lv=LEVELS.length-1;for(const k in UP)UP[k]=s.up&&s.up[k]||0;G.souls=s.souls||0;G.deaths=s.deaths||0;G.stain=s.stain||null;G.weapon=s.weapon||0;G.opened=s.opened||{};G.doors=s.doors||{};G.hints=s.hints||{};G.tries=s.tries||{};G.cleared=s.cleared||{};G.char=s.char||'chevalier';G.arrow=s.arrow||0;G.ult=s.ult||0;G.healCD=s.healCD||0;hideMenu();loadLevel(s.lv,s.check)}
+function newGame(){G.weapon=0;G.opened={};G.doors={};G.hints={};G.tries={};G.cleared={};G.seeds={};G.arrow=0;G.ult=0;G.healCD=0;for(const k in UP)UP[k]=0;G.souls=0;G.deaths=0;G.stain=null;hideMenu();loadLevel(0)}
+function contGame(s){if(s.lv>=LEVELS.length)s.lv=LEVELS.length-1;for(const k in UP)UP[k]=s.up&&s.up[k]||0;G.souls=s.souls||0;G.deaths=s.deaths||0;G.stain=s.stain||null;G.weapon=s.weapon||0;G.opened=s.opened||{};G.doors=s.doors||{};G.hints=s.hints||{};G.tries=s.tries||{};G.cleared=s.cleared||{};G.seeds=s.seeds||{};if(s.check&&s.check!==START&&!(s.seeds&&s.lv in s.seeds))G.seeds[s.lv]=null;G.char=s.char||'chevalier';G.arrow=s.arrow||0;G.ult=s.ult||0;G.healCD=s.healCD||0;hideMenu();loadLevel(s.lv,s.check)}
 function rest(fx){musStop(1);
   check=fx;p.hp=stat.hp();p.st=stat.stmax();p.x=fx-6;p.vx=0;
   enemies=L.enemies.filter(e=>e[1]>fx+120).map(mkEnemy);proj=[];
@@ -815,7 +864,7 @@ function update(dt){
   shake=Math.max(0,shake-dt*25);
   G.banner=Math.max(0,G.banner-dt);G.vT=Math.max(0,(G.vT||0)-dt);G.bi=Math.max(0,(G.bi||0)-dt);G.msgT=Math.max(0,G.msgT-dt);
   updParts(dt);
-  if(G.st==='dead'){G.dt+=dt;if(G.dt>1.8&&P.any)spawn();return}
+  if(G.st==='dead'){G.dt+=dt;if(G.dt>1.8&&P.any){const rg=check===START;if(rg)regenLevel();spawn();if(rg)floats.push({x:START+40,y:GY-50,t:'Le chemin a changé…',life:2.6});save()}return}
   if(G.st==='win'){G.dt+=dt;if(G.dt>3.5&&(P.any||G.dt>7)){if(G.lv<LEVELS.length-1)loadLevel(G.lv+1);else{G.st='end';G.dt=0}}return}
 
   if(P.pause){openPause();return}
@@ -1752,12 +1801,12 @@ function gfxBase(){
 /* ---------- génération d'un niveau ---------- */
 function prepGfx(Ld){
   gfxBase();
-  if(GFX.cache.has(Ld))return GFX.cache.get(Ld);
-  const id=LEVELS.indexOf(Ld),o={layers:[0,1,2].map(d=>genLayer(Ld,d,id)),pat:null,tile:genGround(Ld,id),
+  if(!Ld._pits){Ld._pits=[];for(let i=1;i<Ld.ground.length;i++){const a=Ld.ground[i-1][1],b=Ld.ground[i][0];if(b>a)Ld._pits.push([a,b])}}
+  if(GFX.cache.has(Ld.wid)){const c=GFX.cache.get(Ld.wid);c.pits=Ld._pits;return c}
+  const id=Ld.wid,o={layers:[0,1,2].map(d=>genLayer(Ld,d,id)),pat:null,tile:genGround(Ld,id),
     fogD:Ld.cloud?genFog(Ld.cloud,Ld.style==='meadow'||Ld.style==='snow'||Ld.style==='pine'?.6:.45,id*3+1):null,fogG:genFog(Ld.mist,.3,id*3+2),fogA:genFog(Ld.haze,.25,id*3+3),pits:[]};
   try{o.pat=ctx.createPattern(o.tile,'repeat');if(o.pat&&o.pat.setTransform&&typeof DOMMatrix!=='undefined')o.pat.setTransform(new DOMMatrix().scale(.5))}catch(e){}
-  for(let i=1;i<Ld.ground.length;i++){const a=Ld.ground[i-1][1],b=Ld.ground[i][0];if(b>a)o.pits.push([a,b])}
-  GFX.cache.set(Ld,o);return o;
+  o.pits=Ld._pits;GFX.cache.set(Ld.wid,o);return o;
 }
 function genFog(col,a,seed){
   const c=mkCanvas(512,110),x=c.getContext('2d'),R=srand(seed*977);
@@ -1771,7 +1820,7 @@ function drawFogBand(c,camx,par,speed,y,a){ctx.globalAlpha=a;let o=-((((camx*par
 /* ---------- ciel ---------- */
 function drawSky(Ld,camx){
   const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,Ld.sky[0]);g.addColorStop(.55,Ld.sky[1]);g.addColorStop(1,Ld.glow);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  const id=LEVELS.indexOf(Ld);
+  const id=Ld.wid;
   if(Ld.stars){const R2=srand(id*17+3);for(let i=0;i<70;i++){const sx=(R2()*W*2-camx*.02)%W,sy=R2()*120;ctx.globalAlpha=.25+Math.sin(G.time*2+i)*.25;R((sx+W)%W,sy,1,1,'#f0e8ff')}ctx.globalAlpha=1}
   const big=Ld.sunR||1,sx=Ld.ocean?W*.55-camx*.01:380-camx*.02,sy=Ld.sunY||58;
   ctx.globalCompositeOperation='lighter';
@@ -2151,9 +2200,12 @@ function openPause(){
   menu.innerHTML='<div class="panel"><div class="ttl">❚❚ Pause</div>'+
     '<button class="mb" id="pr" style="width:100%;margin-top:6px">Reprendre</button>'+
     (touch?'<button class="mb" id="pl" style="width:100%;margin-top:8px">Disposition des boutons</button>':'')+
+    '<button class="mb" id="pq" style="width:100%;margin-top:8px"></button>'+
     '<button class="mb" id="pt" style="width:100%;margin-top:8px">Retour au titre</button>'+
     '<div class="stats">Ta progression est sauvegardée à chaque feu de camp.</div></div>';
   $('pr').onclick=closePause;if($('pl'))$('pl').onclick=openLayout;
+  const ql=()=>$('pq').textContent='Qualité : '+(QPREF==='max'?'Maximale (toujours net)':'Auto (plus fluide)');ql();
+  $('pq').onclick=()=>{QPREF=QPREF==='max'?'auto':'max';try{localStorage.setItem('adc_q',QPREF)}catch(e){}if(QPREF==='max'){QMAX=3;QLOW=false;resize()}qReset();ql()};
   $('pt').onclick=()=>{if($('pt').dataset.c!=='1'){$('pt').dataset.c='1';$('pt').textContent='Sûr ? Touche encore (retour au dernier feu)';return}save();hideMenu();showTitle()};
 }
 function closePause(){hideMenu();G.st='play';for(const k in K)K[k]=false}
@@ -2210,9 +2262,13 @@ function syncUI(){let mode='',lab='';
   if(mode!==fireBtn){fireBtn=mode;$('bf').style.display=mode?'block':'none';$('bf').textContent=lab;$('bf').style.opacity=mode[0]==='d'&&mode!=='d0'?'.75':'1'}
   $('pz').style.display=G.st==='play'||G.st==='pause'?'flex':'none'}
 let last=performance.now();
-let qT=0,qN=0;
+let qT=0,qN=0,qF=[],qGr=5,qUp=0;
+function qReset(){qT=0;qF=[];qGr=5}
 function loop(now){try{musAuto()}catch(e){}const rdt=(now-last)/1000,dt=Math.min(.033,rdt);last=now;
-  if(G.st==='play'){qT+=rdt;qN++;if(qT>2.5){const fps=qN/qT;qT=0;qN=0;if(fps<42){if(QMAX>1&&SC>1){QMAX=SC-1;resize()}else QLOW=true}}}
+  if(G.st==='play'&&QPREF==='auto'&&!document.hidden){if(qGr>0)qGr-=rdt;else if(rdt<.25){qT+=rdt;qF.push(rdt);if(qT>3){qF.sort((a,b)=>a-b);const med=qF[qF.length>>1],fps=1/med,capped=med>.03&&med<.036&&qF[(qF.length*.8)|0]<.04;qT=0;qF=[];
+    if(fps<40&&!capped){qUp=0;if(!QLOW)QLOW=true;else if(QMAX>2&&SC>2){QMAX=SC-1;resize()}}
+    else if(fps>57){if(++qUp>=3&&QMAX<3){QMAX++;qUp=0;resize()}}}}}
+  else if(G.st!=='play')qReset();
   if(G.hs>0&&G.st==='play'){G.hs-=dt;updParts(dt*.2);draw();syncUI()}else{update(dt);draw();syncUI();for(const k in P)P[k]=false}requestAnimationFrame(loop)}
 showTitle();
 requestAnimationFrame(loop);

@@ -29,6 +29,12 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none
 #bw{width:50px;height:50px;font-size:20px;background:rgba(150,220,150,.12);border-color:rgba(170,230,170,.45)}
 #bf{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:3;display:none;background:rgba(60,25,10,.85);border:2px solid #f84;color:#fdb;font:bold 14px Georgia,serif;padding:10px 16px;border-radius:24px;-webkit-tap-highlight-color:transparent}
 #mu{position:absolute;top:6px;left:calc(50% + 26px);opacity:.8;z-index:6;width:40px;height:40px;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,200,150,.45);color:#fdb;font:bold 18px sans-serif;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;padding:0}
+#pz{position:absolute;top:6px;left:calc(50% - 66px);opacity:.8;z-index:6;width:40px;height:40px;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,200,150,.45);color:#fdb;font:bold 15px sans-serif;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;padding:0;letter-spacing:-2px}
+#lay{position:fixed;left:50%;top:52px;transform:translateX(-50%);z-index:9;display:none;background:rgba(14,8,6,.92);border:1px solid #a86;border-radius:8px;padding:8px 12px;color:#fdc;font:14px Georgia,serif;text-align:center;min-width:280px;max-width:92vw;box-sizing:border-box}
+#lay input{width:100%;margin:6px 0}
+#lay .row2{display:flex;gap:8px;justify-content:center;margin-top:4px}
+.edit{outline:2px dashed rgba(255,200,120,.7);outline-offset:3px}
+.edit.sel{outline:3px solid #ffd080;box-shadow:0 0 18px rgba(255,190,90,.7)}
 #fs{position:absolute;top:6px;left:50%;transform:translateX(-50%);opacity:.8;z-index:6;width:40px;height:40px;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,200,150,.45);color:#fdb;font:bold 20px sans-serif;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;padding:0}
 #menu{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:5;font-family:Georgia,serif}
 #menu.tm{background:transparent;align-items:flex-end;padding-bottom:6vh;box-sizing:border-box}
@@ -56,7 +62,9 @@ button.mb:disabled{opacity:.35}
 <div class="ctl" id="lc"><div id="joy"><div id="knob"></div></div></div>
 <div class="ctl" id="rc"><div class="b" data-k="weapon" id="bw" style="grid-area:w">⇄</div><div class="b" data-k="spell" id="bs">SORT</div><div class="b" data-k="block" id="bb">🛡</div><div class="b" data-k="attack" id="ba" style="font-size:22px">⚔</div><div class="b" data-k="jump" id="bj">SAUT</div></div>
 <button id="bf">🔥 Se reposer</button>
+<button id="pz" title="Pause">❚❚</button>
 <button id="fs" title="Plein écran">⛶</button>
+<div id="lay"></div>
 <button id="mu" title="Musique">♪</button>
 <div id="menu"></div>
 <script>/* musique intégrée (MP3 en base64) : aucun téléchargement séparé */
@@ -136,7 +144,7 @@ function musAuto(){
         MUS.boss={th,parts:[a,b],int:1};busRamp(a.g,1,1);if(MUS.lv){stopTr(MUS.lv,1.2);MUS.lv=null}}
     }else if(MUS.boss.int!==MUS.int){MUS.boss.int=MUS.int;const hi=MUS.int>=2;busRamp(MUS.boss.parts[0].g,hi?0:1,2);busRamp(MUS.boss.parts[1].g,hi?1:0,2)}
   }
-  const ok=['play','rest','riddle','read','select','title','end'].includes(G.st);
+  const ok=['play','rest','riddle','read','select','title','end','pause','layout'].includes(G.st);
   const want=lvName&&!bossOn&&!MUS.wantBoss&&ok&&G.time>(LV.hold||0);
   if(want){if((!MUS.lv||MUS.lv.name!==lvName)&&MUS.buf[lvName]){stopTr(MUS.lv,1.5);const p=mkSrc(lvName,AC.currentTime+.06);busRamp(p.g,1,2.5);MUS.lv={name:lvName,parts:[p]}}}
   else if(MUS.lv&&(bossOn||MUS.wantBoss||!ok)){stopTr(MUS.lv,G.st==='dead'?2.5:1.2);MUS.lv=null}
@@ -147,12 +155,12 @@ function musMute(){MUS.muted=!MUS.muted;try{localStorage.setItem('adc_mute',MUS.
 
 /* ---------- Entrées ---------- */
 const K={},P={};
-const KM={ArrowLeft:'left',KeyA:'left',KeyQ:'left',ArrowRight:'right',KeyD:'right',Space:'jump',ArrowUp:'jump',KeyW:'jump',KeyZ:'jump',KeyX:'attack',KeyJ:'attack',KeyC:'spell',KeyK:'spell',ShiftLeft:'block',ShiftRight:'block',KeyV:'block',KeyL:'block',KeyE:'rest',ArrowDown:'rest',Enter:'enter',Escape:'enter',KeyR:'weapon',KeyF:'weapon',Tab:'weapon'};
+const KM={ArrowLeft:'left',KeyA:'left',KeyQ:'left',ArrowRight:'right',KeyD:'right',Space:'jump',ArrowUp:'jump',KeyW:'jump',KeyZ:'jump',KeyX:'attack',KeyJ:'attack',KeyC:'spell',KeyK:'spell',ShiftLeft:'block',ShiftRight:'block',KeyV:'block',KeyL:'block',KeyE:'rest',ArrowDown:'rest',Enter:'enter',Escape:'enter',KeyP:'pause',KeyR:'weapon',KeyF:'weapon',Tab:'weapon'};
 addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;initAudio();const k=KM[e.code];if(k){e.preventDefault();if(!K[k])P[k]=true;K[k]=true;P.any=true}});
 addEventListener('keyup',e=>{const k=KM[e.code];if(k)K[k]=false});
 document.querySelectorAll('.b').forEach(el=>{
   const k=el.dataset.k;
-  const dn=e=>{e.preventDefault();initAudio();K[k]=true;P[k]=true;P.any=true;el.classList.add('on')};
+  const dn=e=>{e.preventDefault();initAudio();if(G.st==='layout')return;K[k]=true;P[k]=true;P.any=true;el.classList.add('on')};
   const up=e=>{e.preventDefault();K[k]=false;el.classList.remove('on')};
   el.addEventListener('pointerdown',dn);el.addEventListener('pointerup',up);
   el.addEventListener('pointercancel',up);el.addEventListener('pointerleave',up);
@@ -161,13 +169,14 @@ document.querySelectorAll('.b').forEach(el=>{
 cv.addEventListener('pointerdown',()=>{initAudio();P.any=true});
 /* joystick analogique (gauche/droite) */
 const JOY={x:0,id:null};
-(()=>{const j=$('joy'),kn=$('knob'),R=40;
-  const mv=e=>{const r=j.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
+let JOYS=1;
+(()=>{const j=$('joy'),kn=$('knob');
+  const mv=e=>{const R=40*JOYS,r=j.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
     const l=Math.hypot(dx,dy);if(l>R){dx=dx/l*R;dy=dy/l*R}
-    kn.style.transform='translate('+dx+'px,'+dy+'px)';
+    kn.style.transform='translate('+dx/JOYS+'px,'+dy/JOYS+'px)';
     const v=dx/R;JOY.x=Math.abs(v)<.18?0:Math.sign(v)*Math.min(1,(Math.abs(v)-.18)/.62)};
   const end=e=>{if(e.pointerId!==JOY.id)return;JOY.id=null;JOY.x=0;kn.style.transform=''};
-  j.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();P.any=true;JOY.id=e.pointerId;try{j.setPointerCapture(e.pointerId)}catch(_){}mv(e)});
+  j.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();if(G.st==='layout')return;P.any=true;JOY.id=e.pointerId;try{j.setPointerCapture(e.pointerId)}catch(_){}mv(e)});
   j.addEventListener('pointermove',e=>{if(e.pointerId===JOY.id){e.preventDefault();mv(e)}});
   j.addEventListener('pointerup',end);j.addEventListener('pointercancel',end);j.addEventListener('lostpointercapture',end);
   j.addEventListener('contextmenu',e=>e.preventDefault());
@@ -801,7 +810,7 @@ function update(dt){
   if(G.st==='title'){if(P.enter){const s=loadSave();if(s)contGame(s);else newGame()}return}
   if(G.st==='rest'){if(P.enter)closeRest();return}
   if(G.st==='select'){G.flash=0;return}
-  if(G.st==='riddle'||G.st==='read')return;
+  if(G.st==='riddle'||G.st==='read'||G.st==='pause'||G.st==='layout'){if(P.pause&&G.st==='pause')closePause();return}
   if(G.st==='end'){G.dt+=dt;if(G.dt>2&&P.any){clearSave();showTitle()}return}
   shake=Math.max(0,shake-dt*25);
   G.banner=Math.max(0,G.banner-dt);G.vT=Math.max(0,(G.vT||0)-dt);G.bi=Math.max(0,(G.bi||0)-dt);G.msgT=Math.max(0,G.msgT-dt);
@@ -809,6 +818,7 @@ function update(dt){
   if(G.st==='dead'){G.dt+=dt;if(G.dt>1.8&&P.any)spawn();return}
   if(G.st==='win'){G.dt+=dt;if(G.dt>3.5&&(P.any||G.dt>7)){if(G.lv<LEVELS.length-1)loadLevel(G.lv+1);else{G.st='end';G.dt=0}}return}
 
+  if(P.pause){openPause();return}
   upPlayer(dt);
   if(G.st!=='play')return;
   if(!bossOn)cam.x=clamp(p.x-180,0,L.ax);
@@ -819,7 +829,7 @@ function update(dt){
     if(fx>check&&p.x>fx){check=fx;p.hp=stat.hp();say('Feu de camp allumé — PV restaurés');sfx(400,.5,'sine',.06,800);save()}}
   nearDoor=null;
   L.doors.forEach((dr,i)=>{if(!G.doors[G.lv+':'+i]&&p.x+p.w>dr.x-34&&p.x<dr.x&&p.y>GY-90)nearDoor=i});
-  if(nearDoor!==null&&P.rest){openRiddle(nearDoor);return}
+  if(nearDoor!==null&&P.rest){const left=doorFoes(L.doors[nearDoor]).length;if(left>0){say('🔒 Porte scellée : encore '+left+' ennemi'+(left>1?'s':'')+' à vaincre');sfx()}else{openRiddle(nearDoor);return}}
   for(const st of L.stones){const key=st[2]+':'+st[3];if(G.hints[key])continue;
     if(Math.abs(p.x+6-st[0]-4)<11&&Math.abs(p.y+p.h-st[1])<8){G.hints[key]=1;save();showStone(st);return}}
   if(nearFire!==null&&P.rest){rest(nearFire);return}
@@ -1680,7 +1690,11 @@ function drawHUD(){
   if(G.bi>0){const a=Math.min(1,G.bi,(3-G.bi)*2);band(a);ctx.globalAlpha=a;title(G.biN,W/2,134,22,'#fff0c0','#c04020');txt(G.biM,W/2,150,8,'#d8c8b8','center','italic ');ctx.globalAlpha=1}
   if(G.msgT>0){ctx.globalAlpha=Math.min(1,G.msgT*2);txt(G.msg,W/2,70,11,'#ddd','center','');ctx.globalAlpha=1}
   if(nearFire!==null&&G.st==='play'&&!touch)txt('E : se reposer au feu de camp',W/2,200,9,'#fc8','center','');
-  if(nearDoor!==null&&G.st==='play'&&!touch)txt('E : lire l’énigme de la porte',W/2,200,9,'#fc8','center','');
+  if(G.st==='play')for(let i=0;i<L.doors.length;i++){const dr=L.doors[i];if(G.doors[G.lv+':'+i]||dr.x<p.x-40||dr.x-p.x>420)continue;
+    const fo=doorFoes(dr);if(fo.length){let nb=fo[0];for(const e of fo)if(Math.abs(e.x-p.x)<Math.abs(nb.x-p.x))nb=e;const ar=nb.x<p.x?'←':'→';
+      txt('🔒 Porte scellée — ennemis restants : '+fo.length+'  '+ar,W/2,60,9,'#ffb080','center','')}
+    else if(nearDoor===i&&!touch)txt('E : lire l’énigme de la porte',W/2,200,9,'#fc8','center','');
+    else if(dr.x-p.x<200)txt('✓ La porte peut être ouverte',W/2,60,9,'#a8f0a0','center','');break}
   if(G.vT>0){const a=Math.min(1,G.vT);band(a);ctx.globalAlpha=a;title('GARDIEN VAINCU',W/2,138,22,'#fff0c0','#c08030');txt('La voie est libre',W/2,152,9,'#ddd','center','');ctx.globalAlpha=1}
 }
 function band(a){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.25,'rgba(0,0,0,.8)');g.addColorStop(.75,'rgba(0,0,0,.8)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.globalAlpha=a;ctx.fillStyle=g;ctx.fillRect(0,103,W,54);ctx.globalAlpha=1}
@@ -2130,8 +2144,71 @@ $('fs').addEventListener('click',async e=>{
 function alertTitle(){const m=document.createElement('div');m.textContent='Plein écran indisponible ici — tourne le téléphone à l’horizontale, ou ouvre le jeu depuis le raccourci de l’écran d’accueil.';m.style.cssText='position:absolute;top:54px;right:8px;left:8px;z-index:7;background:rgba(20,10,5,.92);color:#fdb;border:1px solid #a86;padding:10px;font:14px Georgia,serif;border-radius:6px;text-align:center';document.body.appendChild(m);setTimeout(()=>m.remove(),4000)}
 document.addEventListener('fullscreenchange',syncFS);document.addEventListener('webkitfullscreenchange',syncFS);
 
+/* ---------- Pause ---------- */
+function openPause(){
+  if(G.st!=='play')return;G.st='pause';for(const k in K)K[k]=false;JOY.x=0;
+  menu.className='';menu.style.display='flex';
+  menu.innerHTML='<div class="panel"><div class="ttl">❚❚ Pause</div>'+
+    '<button class="mb" id="pr" style="width:100%;margin-top:6px">Reprendre</button>'+
+    (touch?'<button class="mb" id="pl" style="width:100%;margin-top:8px">Disposition des boutons</button>':'')+
+    '<button class="mb" id="pt" style="width:100%;margin-top:8px">Retour au titre</button>'+
+    '<div class="stats">Ta progression est sauvegardée à chaque feu de camp.</div></div>';
+  $('pr').onclick=closePause;if($('pl'))$('pl').onclick=openLayout;
+  $('pt').onclick=()=>{if($('pt').dataset.c!=='1'){$('pt').dataset.c='1';$('pt').textContent='Sûr ? Touche encore (retour au dernier feu)';return}save();hideMenu();showTitle()};
+}
+function closePause(){hideMenu();G.st='play';for(const k in K)K[k]=false}
+$('pz').addEventListener('click',e=>{e.preventDefault();initAudio();if(G.st==='play')openPause();else if(G.st==='pause')closePause()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.st==='play')openPause()});
+/* ---------- Disposition des boutons (déplacer, redimensionner) ---------- */
+const CTRL=[['joy','Joystick',124],['bj','Saut',70],['ba','Attaque',62],['bb','Bouclier / esquive',62],['bw','Arme / ultime',50],['bs','Sort',62]];
+let LAYS={},laySel='bj';
+try{LAYS=JSON.parse(localStorage.getItem('adc_layout')||'{}')||{}}catch(e){LAYS={}}
+const orient=()=>innerHeight>innerWidth?'port':'land';
+function applyLayout(){
+  const Lo=LAYS[orient()];
+  for(const [id,,base] of CTRL){const el=$(id);if(!el)continue;const c=Lo&&Lo[id];
+    if(c){el.style.position='fixed';el.style.left=(c.x*innerWidth)+'px';el.style.top=(c.y*innerHeight)+'px';el.style.margin='0';
+      el.style.transform='translate(-50%,-50%) scale('+c.s+')';if(id==='joy')JOYS=c.s}
+    else{el.style.position='';el.style.left='';el.style.top='';el.style.transform='';el.style.margin='';if(id==='joy')JOYS=1}}
+}
+function captureLayout(){const o={};for(const [id] of CTRL){const el=$(id);const r=el.getBoundingClientRect();const cur=(LAYS[orient()]||{})[id];
+  o[id]={x:(r.left+r.width/2)/innerWidth,y:(r.top+r.height/2)/innerHeight,s:cur?cur.s:1}}return o}
+function saveLayout(){try{localStorage.setItem('adc_layout',JSON.stringify(LAYS))}catch(e){}}
+function renderLay(){const c=(LAYS[orient()]||{})[laySel]||{s:1},nm=CTRL.find(x=>x[0]===laySel)[1];
+  $('lay').innerHTML='<b>Disposition des boutons</b><br><small>Fais glisser un bouton pour le déplacer. Touche-le pour régler sa taille.</small>'+
+    '<div style="margin-top:6px">Taille de « '+nm+' » : <b id="lsv">'+Math.round(c.s*100)+' %</b></div><input id="lsz" type="range" min="0.6" max="1.8" step="0.05" value="'+c.s+'">'+
+    '<div class="row2"><button class="mb" id="lrs">Réinitialiser</button><button class="mb" id="lok">Terminé</button></div>';
+  $('lsz').oninput=e=>{const Lo=LAYS[orient()];Lo[laySel].s=+e.target.value;$('lsv').textContent=Math.round(Lo[laySel].s*100)+' %';applyLayout();saveLayout()};
+  $('lrs').onclick=()=>{delete LAYS[orient()];saveLayout();applyLayout();LAYS[orient()]=captureLayout();applyLayout();renderLay()};
+  $('lok').onclick=closeLayout;
+  for(const [id] of CTRL)$(id).classList.toggle('sel',id===laySel);
+}
+function openLayout(){
+  hideMenu();G.st='layout';if(!LAYS[orient()])LAYS[orient()]=captureLayout();applyLayout();
+  for(const [id] of CTRL){const el=$(id);el.classList.add('edit');el.style.visibility='visible'}
+  $('lay').style.display='block';renderLay();
+}
+function closeLayout(){
+  for(const [id] of CTRL)$(id).classList.remove('edit','sel');
+  $('lay').style.display='none';saveLayout();applyCharUI();G.st='pause';G.st='play';openPause();
+}
+(()=>{let drag=null;
+  for(const [id] of CTRL){const el=$(id);
+    el.addEventListener('pointerdown',e=>{if(G.st!=='layout')return;e.preventDefault();e.stopPropagation();laySel=id;renderLay();
+      const c=LAYS[orient()][id];drag={id,pid:e.pointerId,ox:e.clientX-c.x*innerWidth,oy:e.clientY-c.y*innerHeight};try{el.setPointerCapture(e.pointerId)}catch(_){}},true);
+    el.addEventListener('pointermove',e=>{if(G.st!=='layout'||!drag||drag.pid!==e.pointerId)return;e.preventDefault();const c=LAYS[orient()][drag.id];
+      c.x=clamp((e.clientX-drag.ox)/innerWidth,.03,.97);c.y=clamp((e.clientY-drag.oy)/innerHeight,.06,.97);applyLayout()},true);
+    const end=e=>{if(drag&&drag.pid===e.pointerId){drag=null;saveLayout()}};el.addEventListener('pointerup',end,true);el.addEventListener('pointercancel',end,true)}
+})();
+addEventListener('resize',()=>setTimeout(applyLayout,50));
+applyLayout();
+/* ---------- Portes : ennemis restants ---------- */
+function doorFoes(dr){return enemies.filter(e=>!e.dead&&!e.summoned&&e.x<dr.x&&e.y<H)}
 let fireBtn=false;
-function syncUI(){const mode=G.st!=='play'||!touch?'':nearFire!==null?'f':nearDoor!==null?'d':'';if(mode!==fireBtn){fireBtn=mode;$('bf').style.display=mode?'block':'none';$('bf').textContent=mode==='d'?'📜 Lire l’énigme':'🔥 Se reposer'}}
+function syncUI(){let mode='',lab='';
+  if(G.st==='play'&&touch){if(nearFire!==null){mode='f';lab='🔥 Se reposer'}else if(nearDoor!==null){const n=doorFoes(L.doors[nearDoor]).length;mode='d'+n;lab=n?'🔒 Encore '+n+' ennemi'+(n>1?'s':''):'📜 Lire l’énigme'}}
+  if(mode!==fireBtn){fireBtn=mode;$('bf').style.display=mode?'block':'none';$('bf').textContent=lab;$('bf').style.opacity=mode[0]==='d'&&mode!=='d0'?'.75':'1'}
+  $('pz').style.display=G.st==='play'||G.st==='pause'?'flex':'none'}
 let last=performance.now();
 let qT=0,qN=0;
 function loop(now){try{musAuto()}catch(e){}const rdt=(now-last)/1000,dt=Math.min(.033,rdt);last=now;

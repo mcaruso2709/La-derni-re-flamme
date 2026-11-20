@@ -541,7 +541,7 @@ function build(Lv){const s=[];
   Lv.doors.forEach((d,i)=>{if(!G.doors[G.lv+':'+i])s.push({x:d.x,y:0,w:24,h:GY,door:i})});
   return s}
 function loadLevel(i,chk){if(!chk){G.opened={};G.cleared={}}G.lv=i;if(!G.seeds)G.seeds={};if(!chk||G.seeds[i]===undefined)G.seeds[i]=newSeed();L=genLevel(i,G.seeds[i]);solids=build(L);check=chk&&L.fires.includes(chk)?chk:START;G.banner=3.5;G.fade=1;G.bossDead=false;spawn();save();if(check===START)openSelect()}
-function spawn(){if(typeof qReset==='function')qReset();
+function spawn(){if(typeof qReset==='function')qReset();G.bch=null;G.blade=0;G.bsh=[];G.tSaid=0;
   p={x:check,y:GY-22,w:12,h:22,vx:0,vy:0,hp:stat.hp(),inv:0,face:1,jumps:0,onGround:true,atk:0,atkCD:0,atkId:0,spell:0,kb:0,anim:0,st:stat.stmax(),stD:0,blocking:false,buff:0,atkD:.12,dash:0,gx:check,gy:GY};
   cam={x:Math.max(0,check-180)};
   enemies=L.enemies.filter(e=>e[1]>check+120).map(mkEnemy);
@@ -885,10 +885,12 @@ function update(dt){
   // âmes perdues
   const s=G.stain;
   if(s&&s.lv===G.lv&&Math.abs(p.x+6-s.x)<14&&Math.abs(p.y+p.h-s.y)<24){G.souls+=s.n;floats.push({x:s.x,y:s.y-30,t:'Âmes récupérées +'+s.n,life:2});G.stain=null;sfx(700,.5,'sine',.06,1400);save()}
-  if(!bossOn&&!G.bossDead)for(const a of L.arenas){if(G.cleared[a.ax])continue;if(p.x>a.ax+30&&p.x<a.ax+W){bossOn=true;AX=a.ax;G.arena=a;boss=mkBoss(a.boss);musStart(a.boss);G.bi=3;G.biN=BOSSNAMES[a.boss];G.biM=a.mid?'Gardien de mi-parcours':'Seigneur de ce royaume';sfx(80,1.2,'sawtooth',.08,40);break}}
+  if(!bossOn&&!G.bossDead&&!G.tSaid)for(const a of L.arenas)if(a.boss===9&&!G.cleared[a.ax]&&p.x>a.ax-160&&p.x<a.ax+30){G.tSaid=1;G.msg='« Seul le temps vous permettra de vaincre. »';G.msgT=4.5}
+  if(!bossOn&&!G.bossDead)for(const a of L.arenas){if(G.cleared[a.ax])continue;if(p.x>a.ax+30&&p.x<a.ax+W){bossOn=true;AX=a.ax;G.arena=a;boss=mkBoss(a.boss);musStart(a.boss);G.bi=3;G.banner=0;G.biN=BOSSNAMES[a.boss];G.biM=a.boss===9?'Seul le temps vous permettra de vaincre':a.mid?'Gardien de mi-parcours':'Seigneur de ce royaume';G.bch=null;G.blade=0;G.bsh=[];sfx(80,1.2,'sawtooth',.08,40);break}}
   upEnemies(dt);
   upPits(dt);
   if(boss){upBoss(dt);if(boss)MUS.int=boss.hp<=boss.max/2?2:1}
+  upBlade(dt);
   upProj(dt);
   upPProj(dt);
   L.chests.forEach((c,i)=>{const key=G.lv+':'+i;if(G.opened[key])return;
@@ -921,6 +923,8 @@ function upPlayer(dt){
   if(P.spell&&C==='mage'){if(G.healCD<=0){const h=Math.min(Math.max(3,Math.ceil(stat.hp()/2)),stat.hp()-p.hp);p.hp+=h;G.healCD=HEALCD;
       floats.push({x:p.x+6,y:p.y-6,t:'Soin +'+h+' PV',life:1.8,c:'#ff9a9a'});waves.push({x:p.x+6,y:p.y+11,r:0,life:.6,c:'#8f8'});burst(p.x+6,p.y+11,'#8f8',20,90);sfx(600,.6,'sine',.07,1200);save()}
     else say('Soin pas prêt — '+fmt(G.healCD))}
+  if(P.attack&&G.blade>0&&boss&&boss.n===TIMEBOSS&&p.atkCD<=0&&p.dash<=0&&!G.bsh.length){
+    G.bsh.push({x:p.x+6+p.face*6,y:p.y+9,t:0,a:0});p.atk=.2;p.atkD=.2;p.atkCD=.45;P.attack=false;sfx(900,.3,'sine',.06,300)}
   if(P.attack&&p.atkCD<=0&&p.st>0&&p.dash<=0){
     const bm=p.buff>0?.4:1;
     if(C==='elfe'){const a=AR();p.atk=.2;p.atkD=.2;p.atkCD=Math.max(.2,a.cd-.015*UP.vitesse);p.st=Math.max(0,p.st-a.cost*bm);p.stD=.45;
@@ -942,6 +946,28 @@ function upPlayer(dt){
   if(p.x<0)p.x=0;
   if(bossOn)p.x=clamp(p.x,AX,AX+W-p.w);
   if(p.y>H+30){p.hp=0;die()}
+}
+function upBlade(dt){const b=boss;
+  if(!b||b.n!==TIMEBOSS){G.bsh=[];return}
+  b.clock=(b.clock||0)+dt;
+  if(b.clock>=TIMEWAIT&&!G.bch&&!G.blade){G.bch={x:AX+W/2-7,y:GY,t:0};G.flash=.4;shake=8;burst(AX+W/2,GY-10,'#c8b0ff',40,160);burst(AX+W/2,GY-10,'#ffe8a0',20,120);G.msg='Un coffre scellé par le temps s’est ouvert à la lumière…';G.msgT=3.5;sfx(300,1.5,'sine',.08,900)}
+  if(G.bch&&!G.bch.open){G.bch.t+=dt;if(ov(p,{x:G.bch.x,y:G.bch.y-10,w:14,h:10})){G.bch.open=1;G.blade=2;burst(G.bch.x+7,G.bch.y-8,'#e8d8ff',30,140);
+      floats.push({x:G.bch.x+7,y:G.bch.y-22,t:'Lame du Temps',life:2.5,c:'#e0d0ff'});G.msg='La Lame du Temps : deux coups suffiront.';G.msgT=3.5;sfx(520,.8,'sine',.08,1560)}}
+  for(const q of G.bsh){q.t+=dt;q.a+=dt*18;const tx=b.x+b.w/2,ty=b.y+b.h/2,dx=tx-q.x,dy=ty-q.y,d=Math.hypot(dx,dy)||1;
+    q.x+=dx/d*360*dt;q.y+=dy/d*360*dt;parts.push({x:q.x,y:q.y,vx:0,vy:0,life:.3,c:rnd()<.5?'#d8c8ff':'#fff4c0',s:2,g:0});
+    if(d<14){q.hit=1;G.blade--;b.mortal=1;damageBoss(b.max/2/stat.dmg()+.01,tx,ty);b.mortal=0;G.flash=.25;shake=10;
+      if(boss&&G.blade>0)floats.push({x:tx,y:ty-24,t:'Encore un coup !',life:1.6,c:'#e0d0ff'});if(!boss)return}}
+  G.bsh=G.bsh.filter(q=>!q.hit&&q.t<3);
+}
+function drawBlade(){
+  const c=G.bch;if(c){const x=c.x,y=c.y,pu=.5+.5*Math.sin(G.time*4);
+    if(!c.open){ctx.globalCompositeOperation='lighter';const g=ctx.createRadialGradient(x+7,y-6,0,x+7,y-6,30);g.addColorStop(0,'rgba(200,170,255,'+(.35+.25*pu)+')');g.addColorStop(1,'rgba(200,170,255,0)');ctx.fillStyle=g;ctx.fillRect(x-25,y-38,64,64);ctx.globalCompositeOperation='source-over'}
+    R(x,y-8,14,8,'#2a2050');R(x,y-8,14,1,'#5a4a90');R(x+3,y-8,1,8,'#d8c070');R(x+10,y-8,1,8,'#d8c070');
+    if(c.open){R(x,y-13,14,3,'#3a2a66');ctx.globalAlpha=.4;R(x+1,y-11,12,3,'#d8c8ff');ctx.globalAlpha=1}
+    else{R(x-1,y-12,16,5,'#3a2a66');R(x-1,y-12,16,1,'#7a6ab0');R(x+3,y-12,1,5,'#e8d080');R(x+10,y-12,1,5,'#e8d080');R(x+6,y-10,3,3,'#fff0a0');
+      if(rnd()<.3)parts.push({x:x+rnd()*14,y:y-12,vx:(rnd()-.5)*10,vy:-25,life:.7,c:'#d8c8ff',s:1,g:0})}}
+  for(const q of G.bsh||[]){ctx.save();ctx.translate(q.x,q.y);ctx.rotate(q.a);ctx.globalCompositeOperation='lighter';
+    ctx.fillStyle='rgba(220,200,255,.9)';ctx.fillRect(-9,-1.5,18,3);ctx.fillStyle='rgba(255,240,190,.9)';ctx.fillRect(-1.5,-5,3,10);ctx.restore();ctx.globalCompositeOperation='source-over'}
 }
 function openChest(key,c){
   G.opened[key]=1;burst(c[0]+7,c[1]-8,'#ffd060',20,120);
@@ -979,8 +1005,11 @@ function hitEnemy(e,mult,dir){
   if(e.hp<=0)killEnemy(e);
 }
 function killEnemy(e){if(e.dead)return;const ex=e.x+e.w/2,ey=e.y+e.h/2;e.dead=1;if(e.t==='G'){burst(ex,ey,'#ff6a10',50,220);shake=10;say((MS()?MS().D.big:'Grand Dragon')+' vaincu !')}burst(ex,ey,e.t==='S'?'#ddd8c4':e.t==='M'?'#f73':'#c64',18,150);gain(e.soul,ex,e.y);sfx(90,.25,'square',.06,30);G.ult=Math.min(ULTN,(G.ult||0)+1)}
+const TIMEBOSS=9,TIMEWAIT=170;
 function damageBoss(mult,hx,hy){
   const b=boss,bc=b.x+b.w/2,by=b.y+b.h/2;
+  if(b.n===TIMEBOSS&&!b.mortal){burst(hx,hy,'#9ab4ff',5,70);sfx(1500,.05,'sine',.02,1800);
+    if(G.time-(G.invS||-9)>1.3){G.invS=G.time;floats.push({x:hx,y:hy-10,t:'Invulnérable',life:.9,c:'#a8bcff'})}return}
   b.hp=Math.max(0,b.hp-stat.dmg()*mult);b.fl=.1;if(mult>=.3){impact(hx,hy,'#fff',mult>=2);G.hs=Math.max(G.hs||0,.05);floats.push({x:hx+(rnd()-.5)*8,y:hy-8,t:''+Math.round(stat.dmg()*mult*10)/10,life:.7,c:mult>=2?'#ff7a5a':'#fff4e0',dmg:1})}if(mult>=.3)G.ult=Math.min(ULTN,(G.ult||0)+.2);burst(hx,hy,'#fff',6);sfx(140,.1,'square',.07,60);shake=Math.max(shake,2);
   if(b.hp<=0){
     musVictory();
@@ -1737,6 +1766,7 @@ function drawHUD(){
     frameBar(bx,by,bw,5,boss.hp/boss.max,boss.gh/boss.max,'#d8321e','#5a0404','#ff9a7a')}
   if(G.banner>0){const a=Math.min(1,G.banner,(3.5-G.banner)*2);band(a*.8);ctx.globalAlpha=a;title(L.name,W/2,136,18,'#fff0d0','#c87a3a');const ms=MS();txt(ms?ms.S.name+' · '+ms.M.name+' · '+ms.D.name:'Squelettes · Sorciers de feu · Dragonnets',W/2,150,8,'#d8c8b8','center','italic ');ctx.globalAlpha=1}
   if(G.bi>0){const a=Math.min(1,G.bi,(3-G.bi)*2);band(a);ctx.globalAlpha=a;title(G.biN,W/2,134,22,'#fff0c0','#c04020');txt(G.biM,W/2,150,8,'#d8c8b8','center','italic ');ctx.globalAlpha=1}
+  if(G.blade>0&&bossOn)txt('⚔ Lame du Temps : '+G.blade+' coup'+(G.blade>1?'s':''),W/2,88,10,'#e0d0ff','center');
   if(G.msgT>0){ctx.globalAlpha=Math.min(1,G.msgT*2);txt(G.msg,W/2,70,11,'#ddd','center','');ctx.globalAlpha=1}
   if(nearFire!==null&&G.st==='play'&&!touch)txt('E : se reposer au feu de camp',W/2,200,9,'#fc8','center','');
   if(G.st==='play')for(let i=0;i<L.doors.length;i++){const dr=L.doors[i];if(G.doors[G.lv+':'+i]||dr.x<p.x-40||dr.x-p.x>420)continue;
@@ -2105,7 +2135,7 @@ function draw(){
   const sx=shake>0?(rnd()-.5)*shake:0,sy=shake>0?(rnd()-.5)*shake:0,ox=Math.round(cam.x-sx),oy=Math.round(-sy);
   drawBG();
   ctx.save();ctx.translate(-ox,-oy);
-  drawLava();drawSolids();drawFires();drawChests();
+  drawLava();drawSolids();drawFires();drawChests();drawBlade();
   for(const e of enemies){if(e.st==='hid'||e.st==='wait'||e.x>cam.x+W+20||e.x+e.w<cam.x-20)continue;drawShadow(e.x+e.w/2,e.y+e.h,e.w)}
   if(boss)drawShadow(boss.x+boss.w/2,boss.y+boss.h,boss.w);
   if(G.st!=='dead')drawShadow(p.x+6,p.y+p.h,12);

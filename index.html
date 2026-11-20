@@ -2467,13 +2467,16 @@ function openPause(){
     '<button class="mb" id="pr" style="width:100%;margin-top:6px">Reprendre</button>'+
     (touch?'<button class="mb" id="pl" style="width:100%;margin-top:8px">Disposition des boutons</button>':'')+
     '<button class="mb" id="pq" style="width:100%;margin-top:8px"></button>'+
+    '<button class="mb" id="prl" style="width:100%;margin-top:8px">'+(G.hc?'↺ Recommencer le défi':'↺ Recommencer le niveau')+'</button>'+
     '<button class="mb" id="pt" style="width:100%;margin-top:8px">Retour au titre</button>'+
     '<div class="stats">Ta progression est sauvegardée à chaque feu de camp.</div></div>';
   $('pr').onclick=closePause;if($('pl'))$('pl').onclick=openLayout;
+  $('prl').onclick=()=>{const b=$('prl');if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent=G.hc?'Sûr ? Touche encore (retour au niveau I)':'Sûr ? Touche encore (nouveau parcours, depuis le début)';return}restartLevel()};
   const ql=()=>$('pq').textContent='Qualité : '+(QPREF==='max'?'Maximale (toujours net)':'Auto (plus fluide)');ql();
   $('pq').onclick=()=>{QPREF=QPREF==='max'?'auto':'max';try{localStorage.setItem('adc_q',QPREF)}catch(e){}if(QPREF==='max'){QMAX=3;QLOW=false;resize()}qReset();ql()};
   $('pt').onclick=()=>{if($('pt').dataset.c!=='1'){$('pt').dataset.c='1';$('pt').textContent='Sûr ? Touche encore (retour au dernier feu)';return}save();hideMenu();showTitle()};
 }
+function restartLevel(){hideMenu();musStop(1);G.bossDead=false;proj=[];pproj=[];parts=[];if(G.hc){startHC();return}loadLevel(G.lv)}
 function closePause(){hideMenu();G.st='play';for(const k in K)K[k]=false}
 $('pz').addEventListener('click',e=>{e.preventDefault();initAudio();if(G.st==='play')openPause();else if(G.st==='pause')closePause()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.st==='play')openPause()});
